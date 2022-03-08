@@ -71,7 +71,7 @@ function local_boostnavigation_get_all_childrenkeys(navigation_node $navigationn
 function local_boostnavigation_build_custom_nodes($customnodes, navigation_node $node,
         $keyprefix='localboostnavigationcustom', $showinflatnavigation=true, $collapse=false,
         $collapsedefault=false, $accordion=false) {
-    global $USER, $FULLME;
+    global $USER, $FULLME, $CFG;
 
     // Fetch config.
     $config = get_config('local_boostnavigation');
@@ -101,6 +101,34 @@ function local_boostnavigation_build_custom_nodes($customnodes, navigation_node 
 
     // Make a new array on delimiter "new line".
     $lines = explode("\n", $customnodes);
+
+    // カスタムメニュー表示制御用データ取得
+    if($keyprefix == 'localboostnavigationcustomrootusers'){
+        $roleTypeAdmin = false;
+        $roleTypeTeacher = false;
+        $roleTypeStudent = false;
+        // 管理者か確認
+        if (is_siteadmin($USER->id)) {
+            $roleTypeAdmin = true;
+        } else {
+            // 管理者以外の場合
+            $roleData = getRoleType($USER->idnumber);
+            if ($roleData) {
+                if ($roleTypeAdmin == false) {
+                    // リストに教師か学生がいればそれぞれtrue
+                    foreach ($roleData['roleList'] as $role) {
+                        if ($role['roleDiv'] == 'TEACHER') {
+                            $roleTypeTeacher = true;
+                        }    
+                        if ($role['roleDiv'] == 'STUDENT') {
+                            $roleTypeStudent = true;
+                        }    
+                    }    
+                }    
+            }    
+        }    
+    }
+
 
     // Parse node settings.
     foreach ($lines as $line) {
@@ -136,7 +164,8 @@ function local_boostnavigation_build_custom_nodes($customnodes, navigation_node 
         // Check for the mandatory conditions first.
         // If array contains too less or too many settings, do not proceed and therefore do not create the node.
         // Furthermore check it at least the first two mandatory params are not an empty string.
-        if (count($settings) >= 2 && count($settings) <= 11 && $settings[0] !== '' && $settings[1] !== '') {
+        // 12番目にパラメータ追加
+        if (count($settings) >= 2 && count($settings) <= 12 && $settings[0] !== '' && $settings[1] !== '') {
             foreach ($settings as $i => $setting) {
                 $setting = trim($setting);
                 if (!empty($setting)) {
@@ -327,7 +356,30 @@ function local_boostnavigation_build_custom_nodes($customnodes, navigation_node 
 
             // Show the custom node in Boost's nav drawer if requested.
             if ($showinflatnavigation) {
-                $customnode->showinflatnavigation = true;
+                // customrootusersの場合
+                if($keyprefix == 'localboostnavigationcustomrootusers'){
+                    // 管理者orマネージャならtrue
+                    $customnode->showinflatnavigation = true;
+                    if ($roleTypeAdmin) {
+                        $customnode->showinflatnavigation = true;
+                    } else {
+                        if (count($settings) == 12) {
+                            // lineが職員リンクでかつ職員ならtrue
+                            if ($roleTypeTeacher == true && $settings['11'] == 'teacher') {
+                                $customnode->showinflatnavigation = true;
+                            // lineが学生リンクでかつ学生ならtrue
+                            } elseif ($roleTypeStudent && $settings['11'] == 'student') {
+                                $customnode->showinflatnavigation = true;
+                            } else {
+                                $customnode->showinflatnavigation = false;
+                            }
+                        } else {
+                            $customnode->showinflatnavigation = true;
+                        }
+                    }
+                } else {
+                    $customnode->showinflatnavigation = true;
+                }
             }
 
             // Add custom class if any class was given.
@@ -962,4 +1014,49 @@ function local_boostnavigation_get_customfield_valuestring($customfieldname, $cu
 
     // Return the string.
     return $customfieldstring;
+}
+
+//ロール情報取得APIを実行
+function getRoleType($userId)
+{
+    // 設定は個別AIから取得
+    $settings = get_config('local_quicksight');
+
+    if (property_exists($settings, 'redshiftRoleApiUrl')) {
+        // パラメータセット
+        $params = 
+        ['params' =>
+            [
+              'userId' => $userId,
+              'accessToken' => $settings->redshiftRoleApiToken
+            ]
+        ];
+        $header = [
+         'Content-Type: application/json'
+        ];
+
+        $curl=curl_init();
+        curl_setopt($curl,CURLOPT_URL,$settings->redshiftRoleApiUrl);
+        curl_setopt($curl,CURLOPT_POST,TRUE);
+        curl_setopt($curl,CURLOPT_POSTFIELDS,json_encode($params));
+        curl_setopt($curl,CURLOPT_HTTPHEADER,$header);
+        curl_setopt($curl,CURLOPT_SSL_VERIFYPEER,FALSE); // 証明書の検証を無効化
+        curl_setopt($curl,CURLOPT_SSL_VERIFYHOST,FALSE); // 証明書の検証を無効化
+        curl_setopt($curl,CURLOPT_RETURNTRANSFER,TRUE); // 返り値を文字列に変更
+        //curl_setopt($curl,CURLOPT_FOLLOWLOCATION,TRUE); // Locationヘッダを追跡
+        curl_setopt($curl,CURLOPT_TIMEOUT_MS, 500); // 500ミリ秒
+
+        $output= curl_exec($curl);
+
+        // エラーハンドリング用
+        $errno = curl_errno($curl);
+        // コネクションを閉じる
+        curl_close($curl);
+
+        // エラーハンドリング
+        if ($errno !== CURLE_OK) {
+        //エラー処理
+        }
+        return json_decode($output,true);
+    }
 }
