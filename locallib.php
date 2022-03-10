@@ -1044,7 +1044,7 @@ function getRoleType($userId)
         curl_setopt($curl,CURLOPT_SSL_VERIFYHOST,FALSE); // 証明書の検証を無効化
         curl_setopt($curl,CURLOPT_RETURNTRANSFER,TRUE); // 返り値を文字列に変更
         //curl_setopt($curl,CURLOPT_FOLLOWLOCATION,TRUE); // Locationヘッダを追跡
-        curl_setopt($curl,CURLOPT_TIMEOUT_MS, 1000); // 1000ミリ秒
+        curl_setopt($curl,CURLOPT_TIMEOUT_MS, 30000); // 30000ミリ秒
 
         $output= curl_exec($curl);
 
