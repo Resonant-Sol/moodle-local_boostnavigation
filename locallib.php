@@ -72,6 +72,7 @@ function local_boostnavigation_build_custom_nodes($customnodes, navigation_node 
         $keyprefix='localboostnavigationcustom', $showinflatnavigation=true, $collapse=false,
         $collapsedefault=false, $accordion=false) {
     global $USER, $FULLME, $CFG;
+    global $SESSION;
 
     // Fetch config.
     $config = get_config('local_boostnavigation');
@@ -112,7 +113,14 @@ function local_boostnavigation_build_custom_nodes($customnodes, navigation_node 
             $roleTypeAdmin = true;
         } else {
             // 管理者以外の場合
-            $roleData = getRoleType($USER->idnumber);
+            // $SESSIONに存在しない場合はAPIで取得
+            if(!isset($SESSION->boostnaviRoleData)){
+                $roleData = getRoleType($USER->idnumber, 0);
+                $SESSION->boostnaviRoleData = $roleData;
+            }else{
+                $roleData = $SESSION->boostnaviRoleData;
+            }
+
             if ($roleData) {
                 if ($roleTypeAdmin == false) {
                     // リストに教師か学生がいればそれぞれtrue
