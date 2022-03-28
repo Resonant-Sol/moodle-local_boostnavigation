@@ -113,10 +113,11 @@ function local_boostnavigation_build_custom_nodes($customnodes, navigation_node 
             $roleTypeAdmin = true;
         } else {
             // 管理者以外の場合
-            // $SESSIONに存在しない場合はAPIで取得
-            if(!isset($SESSION->boostnaviRoleData)){
+            // $SESSIONに存在しない場合、またはSESSION内のidnumber（平文）と$USER->idnumberが食い違っている場合はAPIで取得
+            if(!isset($SESSION->boostnaviRoleData) || ($SESSION->boostnaviIdnumber != $USER->idnumber)){
                 $roleData = getRoleType($USER->idnumber, 0);
                 $SESSION->boostnaviRoleData = $roleData;
+                $SESSION->boostnaviIdnumber = $USER->idnumber;
             }else{
                 $roleData = $SESSION->boostnaviRoleData;
             }
